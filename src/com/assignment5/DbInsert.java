@@ -36,12 +36,27 @@ public class DbInsert {
                 return;
             }
 
-            int numColumns = tableData.get(0).length;
-
             List<String> columnNames = new ArrayList<>(Arrays.asList(tableData.get(0)));
 
-            final String createTableQuery = "CREATE TABLE IF NOT EXIST " + SCHEMA_NAME + "." + tableName;
-            PreparedStatement createTableStatement = con.prepareStatement(createTableQuery);
+            final String createIdGenderTableQuery = "CREATE TABLE IF NOT EXISTS " + SCHEMA_NAME + ".id_gender\n" +
+                    " (person_id  varchar(8), \n" +
+                    "  gender   varchar(8), \n" +
+                    "  PRIMARY KEY (PERSON_ID) \n"+
+                    " );";
+
+            final String createParentChildTableQuery = "CREATE TABLE IF NOT EXISTS " + SCHEMA_NAME + ".parent_child\n" +
+                    " (child_id  varchar(8), \n" +
+                    "  parent_id   varchar(8), \n" +
+                    "  FOREIGN KEY (CHILD_ID) REFERENCES id_gender.perosn_id\n" +
+                    "  ON DELETE SET NULL\n" +
+                    "  FOREIGN KEY (PARENT_ID) REFERENCES id_gender.perosn_id\n" +
+                    "  ON DELETE SET NULL\n" +
+                    " );";
+
+            PreparedStatement createTableStatement = con.prepareStatement(createIdGenderTableQuery);
+            createTableStatement.execute();
+
+            createTableStatement = con.prepareStatement(createParentChildTableQuery);
             createTableStatement.execute();
 
             StringBuilder insertQueryBuilder = new StringBuilder("INSERT INTO " + SCHEMA_NAME + "." + tableName + "(");
@@ -55,14 +70,17 @@ public class DbInsert {
                 valueJoiner.add("?");
             }
 
-            insertValuesBuilder.append(valueJoiner).append(")");
+            insertValuesBuilder.append(valueJoiner).append(");");
             insertQueryBuilder.append(columnJoiner).append(")").append(insertValuesBuilder);
 
             String insertQuery = insertQueryBuilder.toString();
             PreparedStatement insertStatment = con.prepareStatement(insertQuery);
 
-            for (int i = 1; i < tableData.size(); i++) {
-
+            for (int row = 1; row < tableData.size(); row++) {
+                for (int column = 0; column < columnNames.size(); column++) {
+                    insertStatment.setObject(column, tableData.get(row)[column]);
+                }
+                insertStatment.execute();
             }
 
         } catch (ClassNotFoundException | SQLException ex) {

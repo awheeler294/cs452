@@ -15,10 +15,11 @@ public class Main {
         List<String[]> idGenderFileRaw = CSVReader.readFile(idGenderFilePath);
         List<String[]> parentChildRaw = CSVReader.readFile(idParentChildPath);
 
-        for (String[] line: idGenderFileRaw) {
-            System.out.println(Arrays.toString(line));
-        }
+//        for (String[] line: idGenderFileRaw) {
+//            System.out.println(Arrays.toString(line));
+//        }
 
+        DbInsert.insert("id_gender", idGenderFileRaw);
         DbInsert.insert("parent_child", parentChildRaw);
     }
 }
