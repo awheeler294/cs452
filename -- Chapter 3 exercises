@@ -1,0 +1,322 @@
+-- Chapter 3 exercises 11, 12, 13, 14, 16, 17, 21, 22, and 24 from Database Systems Concepts,
+-- 6th edition, pages 108-111. As we've seen in class, SQL queries may be written in more
+-- than one way to produce the same results. The point of the exercises is to practice the
+-- constructs from Chapter 3, primarily aggregation and nested subqueries (including the with statement).
+-- Strive for simplicity (minimal table joins) and maximum clarity.
+
+-- 3.11
+-- a.  Find the names of all students who have taken at least one Comp. Sci.
+-- course; make sure there are no duplicate names in the result.
+
+SELECT DISTINCT student.name
+FROM student
+  INNER JOIN takes ON student.id = takes.id
+  INNER JOIN course ON takes.course_id = course.course_id
+WHERE course.dept_name = 'Comp. Sci.';
+
+-- b.  Find the IDs and names of all students who have not taken any course
+-- offering before Spring 2009.
+
+-- I'm assuming the Winter semester is the first semester in the year,
+-- it seems like a pretty safe assumption, but since there's no well defined
+-- ordering to the semesters I cant be sure. It seems like a major oversight
+-- in the database design.
+SELECT DISTINCT
+  student.name,
+  student.id
+FROM student
+WHERE student.id NOT IN (SELECT student.id
+                         FROM student
+                           INNER JOIN takes ON student.id = takes.id
+                         WHERE takes.year < 2010 AND takes.semester NOT IN ('Spring', 'Summer', 'Fall'));
+
+-- c.  For each department, find the maximum salary of instructors in that
+-- department. You may assume that every department has at least one
+-- instructor.
+SELECT
+  instructor.dept_name,
+  MAX(instructor.salary)
+FROM instructor
+GROUP BY instructor.dept_name;
+
+-- d.  Find the lowest, across all departments, of the per-department maxi-
+-- mum salary computed by the preceding query
+SELECT
+  max_saleries.dept_name,
+  MIN(max_saleries.salary) AS min_dept
+FROM (SELECT
+        instructor.dept_name   AS dept_name,
+        MAX(instructor.salary) AS salary
+      FROM instructor
+      GROUP BY instructor.dept_name) AS max_saleries
+GROUP BY max_saleries.dept_name
+ORDER BY min_dept
+LIMIT 1;
+
+-- 3.12
+-- Write the following queries in
+-- SQL, using the university schema.
+--
+-- a.  Create a new course "CS-001", titled "Weekly Seminar", with 0 credits.
+INSERT INTO course (course_id, title, dept_name, credits)
+VALUES ('cs-001', 'Weekly Seminar', 'Comp. Sci.', 0);
+-- Since you can's create a 0 credit course, here's a version with 1 credit
+INSERT INTO course (course_id, title, dept_name, credits)
+VALUES ('cs-001', 'Weekly Seminar', 'Comp. Sci.', 1);
+
+-- b.  Create a section of this course in Autumn 2009, with sec_id of 1.
+INSERT INTO section (course_id, sec_id, semester, year)
+VALUES ('cs-001', 1, 'Fall', 2009);
+
+-- c.  Enroll every student in the Comp. Sci. department in the above section.
+INSERT INTO takes (id, course_id, sec_id, semester, year)
+  SELECT
+    id,
+    'cs-001',
+    1,
+    'Fall',
+    2009
+  FROM student
+  WHERE dept_name = 'Comp. Sci.';
+
+-- d.  Delete enrollments in the above section where the student’s name is Chavez.
+DELETE FROM takes
+WHERE
+  id = (SELECT id
+        FROM student
+        WHERE name = 'Chavez')
+  AND course_id = 'cs-001'
+  AND sec_id = '1'
+  AND semester = 'Fall'
+  AND year = 2009;
+
+-- e.  Delete the course CS-001. What will happen if you run this delete
+-- statement without first deleting offerings (sections) of this course.
+DELETE FROM course
+WHERE course_id = 'cs-001';
+-- If you run this delete statement without first deleting offerings (sections)
+-- of this course the sections will be automatically deleted because the section table
+-- has the ON DELETE CASCADE clause
+
+-- f.  Delete all 'takes' tuples corresponding to any section of any course with
+-- the word "database" as a part of the title; ignore case when matching
+-- the word with the title.
+DELETE FROM takes
+WHERE takes.course_id = (
+    SELECT course.course_id
+    FROM course
+    WHERE course.title ILIKE '%database%');
+
+-- 3.13 Write SQL DDL corresponding to the schema in Figure 3.18. Make any
+-- reasonable assumptions about data types, and be sure to declare primary
+-- and foreign keys.
+
+-- person (*driver_id*, name, address)
+-- car (*license*, model, year)
+-- accident (*report_number*, date, location)
+-- owns (*driver_id*, *license*)
+-- participated (*report_number*, *license*, driver id, damage_amount)
+CREATE TABLE insurance.person (
+  driver_id CHARACTER VARYING(5) PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  address TEXT NOT NULL
+);
+
+CREATE TABLE insurance.car (
+  license CHARACTER VARYING(10) PRIMARY KEY NOT NULL,
+  model TEXT NOT NULL,
+  year INTEGER NOT NULL
+);
+
+CREATE TABLE insurance.accident (
+  report_number CHARACTER VARYING(10) PRIMARY KEY NOT NULL,
+  date DATE NOT NULL,
+  location TEXT NOT NULL
+);
+
+CREATE TABLE insurance.owns (
+  driver_id CHARACTER VARYING(10) NOT NULL,
+  license CHARACTER VARYING(10) NOT NULL,
+  PRIMARY KEY (driver_id, license),
+  FOREIGN KEY (driver_id) REFERENCES insurance.person (driver_id)
+  MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE,
+  FOREIGN KEY (license) REFERENCES insurance.car (license)
+  MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE
+);
+
+CREATE TABLE insurance.participated (
+  report_number CHARACTER VARYING(10) NOT NULL,
+  license CHARACTER VARYING(10) NOT NULL,
+  driver_id CHARACTER VARYING(10) NOT NULL,
+  damage_amount INTEGER,
+  PRIMARY KEY (driver_id, license),
+  FOREIGN KEY (driver_id) REFERENCES insurance.person (driver_id)
+  MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE,
+  FOREIGN KEY (license) REFERENCES insurance.car (license)
+  MATCH SIMPLE ON UPDATE NO ACTION ON DELETE CASCADE
+);
+
+-- 3.14 Consider the insurance database of Figure 3.18, where the primary keys
+-- are underlined. Construct the following SQL queries for this relational database.
+--
+-- a.  Find the number of accidents in which the cars belonging to "John Smith" were involved.
+SELECT COUNT(*)
+FROM insurance.participated
+  INNER JOIN insurance.person
+  ON participated.driver_id = person.driver_id
+WHERE person.name = 'John Smith';
+
+-- b.  Update the damage amount for the car with the license number
+--     "AABB2000" in the accident with report number "AR2197" to $3000.
+UPDATE insurance.participated
+SET damage_amount = '3000'
+WHERE license = 'AABB2000' AND report_number = 'AR2197';
+
+-- 3.16
+-- Consider the employee database of Figure 3.20, where the primary keys are
+-- underlined. Give an expression in SQL for each of the following queries.
+
+-- a.  Find the names of all employees who work for "First Bank Corporation".
+SELECT employee_name
+FROM employee
+  INNER JOIN works ON employee.employee_name = employee.employee_name
+WHERE works.company_name = 'First Bank Corporation';
+
+-- b.  Find all employees in the database who live in the same cities as the
+-- companies for which they work.
+SELECT employee.employee_name, city, company.company_name
+FROM employee INNER JOIN company ON employee.city = company.city
+WHERE 1;
+
+-- c.  Find all employees in the database who live in the same cities and on
+-- the same streets as do their managers.
+SELECT employee_info.employee_name, city, street, manager_info.employee_name, company_name
+FROM
+  (SELECT employee.employee_name, city, street, works.company_name
+  FROM employee INNER JOIN works ON employee.employee_name = works.employee_name) AS employee_info
+INNER JOIN manages ON manages.employee_name = employee_info.employee_name
+INNER JOIN
+  (SELECT employee.employee_name, city, street, works.company_name
+  FROM employee INNER JOIN works ON employee.employee_name = works.employee_name) AS manager_info
+ON manages.manager_name = manager_info.employee_name
+WHERE employee_info.company_name = manager_info.company_name
+  AND employee_info.city = manager_info.city
+  AND employee_info.street = manager_info.street;
+
+-- d.  Find all employees who earn more than the average salary of all employees of their company.
+with
+  dept_total(dept_name, value) as
+    (select dept_name, sum(salary)
+    from instructor
+    group by dept_name),
+
+  dept_total_avg(value) as
+    (select avg(value)
+    from dept_total)
+
+select dept_name
+from dept_total, dept_total_avg
+where dept_total.value >= dept_total_avg.value;
+
+-- e.  Find the company that has the smallest payroll.
+SELECT company_name min((SELECT sum(salary)
+                        FROM works
+                        GROUP BY (company_name));
+
+
+-- 3.17
+-- Consider the relational database of Figure 3.20. Give an expression in SQL
+-- for each of the following queries.
+
+-- a.  Give all employees of "First Bank Corporation" a 10 percent raise.
+UPDATE works
+SET salary = salary + salary * .1
+WHERE company_name = 'First Bank Corporation';
+
+-- b.  Give all managers of "First Bank Corporation" a 10 percent raise.
+UPDATE works
+SET salary = salary + salary * .1
+WHERE company_name = 'First Bank Corporation'
+AND employee_name IN (SELECT manager_name FROM manages WHERE 1);
+
+-- c.  Delete all tuples in the works relation for employees of "Small Bank Corporation".
+DELETE FROM works
+WHERE company_name = 'Small Bank Corporation';
+
+
+-- 3.21
+-- Consider the library database of Figure 3.21. Write the following queries in SQL.
+--
+-- a. Print the names of members who have borrowed any book published
+-- by “McGraw-Hill”.
+SELECT member.name
+FROM member
+  INNER JOIN borrowed on menber.memb_no = borrowed.memb_no
+  INNER JOIN book ON book.isbn = borrowed.isbn
+WHERE book.publisher = 'McGraw-Hill';
+
+-- b. Print the names of members who have borrowed all books published
+-- by "McGraw-Hill".
+--
+-- I'm not quite sure what this question is asking, but I'm going to assume
+-- it means the names of members who have borrowed every book published
+-- by "McGraw-Hill".
+SELECT member.name
+FROM member
+  INNER JOIN borrowed on menber.memb_no = borrowed.memb_no
+  INNER JOIN book ON book.isbn = borrowed.isbn
+WHERE book.publisher IN (SELECT publisher FROM book WHERE publisher = 'McGraw-Hill')
+GROUP BY member.name
+HAVING count(DISTINCT borrowed.isbn) = (SELECT count(*) FROM book WHERE publisher = 'McGraw-Hill');
+
+-- c. For each publisher, print the names of members who have borrowed
+-- more than five books of that publisher.
+SELECT member.name
+FROM member
+  INNER JOIN borrowed on menber.memb_no = borrowed.memb_no
+  INNER JOIN book ON book.isbn = borrowed.isbn
+GROUP BY member.name
+HAVING count(book.publisher) > 5;
+
+-- d. Print the average number of books borrowed per member. Take into
+-- account that if an member does not borrow any books, then that
+-- member does not appear in the borrowed relation at all.
+SELECT
+  (SELECT count(*)
+  FROM member) /
+  (SELECT count(*)
+  FROM borrowed);
+
+
+-- 3.22
+-- Rewrite the where clause
+--  WHERE UNIQUE (SELECT title FROM course)
+-- without using the unique construct
+WHERE (SELECT DISTINCT title FROM course)
+
+
+-- 3.22
+--  Consider the following query  and rewrite it without using the with construct.
+-- with
+--   dept_total(dept_name, value) as
+--     (select dept_name, sum(salary)
+--     from instructor
+--     group by dept_name),
+--
+--   dept_total_avg(value) as
+--     (select avg(value)
+--     from dept_total)
+--
+-- select dept_name
+-- from dept_total, dept_total_avg
+-- where dept_total.value >= dept_total_avg.value;
+
+select dept_name
+from (select dept_name, sum(salary)
+    from instructor
+    group by dept_name) AS dept_total,
+
+    (select avg(value)
+    from dept_total) AS dept_total_avg
+
+where dept_total.value >= dept_total_avg.value;
