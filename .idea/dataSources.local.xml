@@ -8,8 +8,8 @@
       <case-sensitivity plain-identifiers="lower" quoted-identifiers="exact" />
       <secret-storage>master_key</secret-storage>
       <user-name>andrew</user-name>
-      <introspection-scope>cs452:public,pg_catalog,andrew</introspection-scope>
-      <resolve-scope>cs452:public,andrew</resolve-scope>
+      <introspection-scope>cs452:andrew,pg_catalog,public</introspection-scope>
+      <resolve-scope>cs452:andrew,public</resolve-scope>
     </data-source>
   </component>
 </project>
