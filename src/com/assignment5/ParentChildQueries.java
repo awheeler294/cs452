@@ -1,9 +1,11 @@
 package com.assignment5;
 import java.sql.*;
+import java.util.*;
+
 /**
  * Created by Andrew on 10/17/2016.
  */
-public class FindAllAncestor {
+public class ParentChildQueries {
     public static void main(String[] args) {
         Connection con = null;
 
@@ -23,7 +25,9 @@ public class FindAllAncestor {
             //
             con = DriverManager.getConnection("jdbc:postgresql://ec2-52-88-214-84.us-west-2.compute.amazonaws.com:5432/cs452", username, password);
 
-            new FindAllAncestor().runJavaTest(con, seedPersonId);
+//            new ParentChildQueries().findAllAncestors(con, seedPersonId);
+            new ParentChildQueries().findMostAssociatedChild(con);
+
 
             if (null == con) {
                 System.out.println("failed to connect");
@@ -91,7 +95,7 @@ public class FindAllAncestor {
 
 
 
-    private void runJavaTest(Connection con, String seedPersonId) {
+    private void findAllAncestors(Connection con, String seedPersonId) {
         //
         // SQL strings
         //
@@ -198,7 +202,7 @@ public class FindAllAncestor {
             double delta = (double)(System.nanoTime() - start) / 1000.0;
 
             System.out.println("-----------------------------------------------------");
-            System.out.println(String.format("\n%-25s%,15.2f microseconds", "Find All Prereq Java", delta));
+            System.out.println(String.format("\n%-25s%,15.2f microseconds", "Find All Ancestors Java", delta));
             System.out.println("-----------------------------------------------------");
             //
             // get result set from result accumulation table and print out prerequisites
@@ -253,5 +257,54 @@ public class FindAllAncestor {
             }
         }
     }
+
+    private void findMostAssociatedChild(Connection con){
+//    Find the id of the child who is associated with the most parents, i.e. direct parental relationships.
+        final String childQuery = "SELECT DISTINCT parent_child_db.parent_child.child_id\n" +
+                "FROM parent_child_db.parent_child;";
+
+        final String parentQuery = "SELECT parent_child_db.parent_child.child_id, parent_child_db.parent_child.parent_id\n" +
+                                    "FROM parent_child_db.parent_child;";
+        try {
+//            ResultSet children = con.createStatement().executeQuery(childQuery);
+
+            ResultSet parents = con.createStatement().executeQuery(parentQuery);
+
+            Map<String, Integer> parentMap = new HashMap<>();
+
+            while (parents.next()) {
+                String childId = parents.getString(1);
+                if (parentMap.containsKey(childId)) {
+                    parentMap.put(childId, parentMap.get(childId) + 1);
+                }
+                else {
+                    parentMap.put(parents.getString(1), 1);
+                }
+            }
+
+//            Map<String, ArrayList<String>> childParentMap = new HashMap<>();
+//            while (children.next()) {
+//
+//            }
+
+            Object[] a = parentMap.entrySet().toArray();
+            Arrays.sort(a, new Comparator() {
+                public int compare(Object o1, Object o2) {
+                    return ((Map.Entry<String, Integer>) o2).getValue()
+                            .compareTo(((Map.Entry<String, Integer>) o1).getValue());
+                }
+            });
+            for (Object e : a) {
+                System.out.println(((Map.Entry<String, Integer>) e).getKey() + " : "
+                        + ((Map.Entry<String, Integer>) e).getValue());
+            }
+
+
+        }
+        catch (SQLException ex) {
+            System.out.println(ex.getMessage());
+        }
+    }
+
 }
 
