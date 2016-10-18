@@ -19,7 +19,7 @@ public class Main {
 //            System.out.println(Arrays.toString(line));
 //        }
 
-        DbInsert.insert("id_gender", idGenderFileRaw);
+//        DbInsert.insert("id_gender", idGenderFileRaw);
         DbInsert.insert("parent_child", parentChildRaw);
     }
 }

@@ -11,7 +11,7 @@ import java.util.StringJoiner;
  */
 public class DbInsert {
 
-    private static String SCHEMA_NAME = "parent_child";
+    private static String SCHEMA_NAME = "parent_child_db";
     private static String DB_USER = "andrew";
     private static String DB_PASS = "dangerwaffle";
 
@@ -39,18 +39,18 @@ public class DbInsert {
             List<String> columnNames = new ArrayList<>(Arrays.asList(tableData.get(0)));
 
             final String createIdGenderTableQuery = "CREATE TABLE IF NOT EXISTS " + SCHEMA_NAME + ".id_gender\n" +
-                    " (person_id  varchar(8), \n" +
-                    "  gender   varchar(8), \n" +
-                    "  PRIMARY KEY (PERSON_ID) \n"+
+                    " (person_id varchar(8), \n" +
+                    "  gender varchar(8), \n" +
+                    "  PRIMARY KEY (person_id) \n"+
                     " );";
 
             final String createParentChildTableQuery = "CREATE TABLE IF NOT EXISTS " + SCHEMA_NAME + ".parent_child\n" +
-                    " (child_id  varchar(8), \n" +
-                    "  parent_id   varchar(8), \n" +
-                    "  FOREIGN KEY (CHILD_ID) REFERENCES id_gender.perosn_id\n" +
-                    "  ON DELETE SET NULL\n" +
-                    "  FOREIGN KEY (PARENT_ID) REFERENCES id_gender.perosn_id\n" +
-                    "  ON DELETE SET NULL\n" +
+                    " (child_id varchar(8), \n" +
+                    "  parent_id varchar(8), \n" +
+                    "  FOREIGN KEY (child_id) REFERENCES " + SCHEMA_NAME + ".id_gender (person_id)\n" +
+                    "   ON DELETE SET NULL,\n" +
+                    "  FOREIGN KEY (parent_id) REFERENCES " + SCHEMA_NAME + ".id_gender (person_id)\n" +
+                    "   ON DELETE SET NULL\n" +
                     " );";
 
             PreparedStatement createTableStatement = con.prepareStatement(createIdGenderTableQuery);
@@ -74,13 +74,16 @@ public class DbInsert {
             insertQueryBuilder.append(columnJoiner).append(")").append(insertValuesBuilder);
 
             String insertQuery = insertQueryBuilder.toString();
-            PreparedStatement insertStatment = con.prepareStatement(insertQuery);
+            PreparedStatement insertStatement = con.prepareStatement(insertQuery);
 
             for (int row = 1; row < tableData.size(); row++) {
                 for (int column = 0; column < columnNames.size(); column++) {
-                    insertStatment.setObject(column, tableData.get(row)[column]);
+                    insertStatement.setObject(column + 1, tableData.get(row)[column]);
                 }
-                insertStatment.execute();
+                insertStatement.execute();
+                if (row % 100 == 0) {
+                    System.out.println(row);
+                }
             }
 
         } catch (ClassNotFoundException | SQLException ex) {
